@@ -11605,7 +11605,7 @@ main(int argc, char *argv[])
 
 	info->block_order = DEFAULT_ORDER;
 	message_level = DEFAULT_MSG_LEVEL;
-	while ((opt = getopt_long(argc, argv, "b:cDd:eEFfg:hi:lpRvXx:", longopts,
+	while ((opt = getopt_long(argc, argv, "b:cDd:eEFfg:hi:lpzRvXx:", longopts,
 	    NULL)) != -1) {
 		switch (opt) {
 		case OPT_BLOCK_ORDER:
@@ -11676,6 +11676,9 @@ main(int argc, char *argv[])
 		       break;
 		case OPT_COMPRESS_SNAPPY:
 			info->flag_compress = DUMP_DH_COMPRESSED_SNAPPY;
+			break;
+		case OPT_COMPRESS_ZSTD:
+			info->flag_compress = DUMP_DH_COMPRESSED_ZSTD;
 			break;
 		case OPT_XEN_PHYS_START:
 			info->xen_phys_start = strtoul(optarg, NULL, 0);

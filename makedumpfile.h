@@ -2459,6 +2459,7 @@ struct elf_prstatus {
 #define OPT_READ_VMCOREINFO     'i'
 #define OPT_COMPRESS_LZO        'l'
 #define OPT_COMPRESS_SNAPPY     'p'
+#define OPT_COMPRESS_ZSTD       'z'
 #define OPT_REARRANGE           'R'
 #define OPT_VERSION             'v'
 #define OPT_EXCLUDE_XEN_DOM     'X'

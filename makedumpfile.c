@@ -4167,6 +4167,14 @@ initial(void)
 	}
 #endif
 
+#ifndef USEZSTD
+	if (info->flag_compress == DUMP_DH_COMPRESSED_ZSTD) {
+		MSG("'-z' option is disabled, ");
+		MSG("because this binary doesn't support zstd compression.\n");
+		MSG("Try `make USEZSTD=on` when building.\n");
+	}
+#endif
+
 	if (info->flag_exclude_xen_dom && !is_xen_memory()) {
 		MSG("'-X' option is disable,");
 		MSG("because %s is not Xen's memory core image.\n", info->name_memory);

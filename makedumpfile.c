@@ -820,6 +820,7 @@ readpage_kdump_compressed(unsigned long long paddr, void *bufptr)
 	char buf[info->page_size], *rdbuf;
 	int ret;
 	unsigned long retlen;
+    unsigned long long rsize;
 
 	if (!is_dumpable(info->bitmap_memory, paddr_to_pfn(paddr), NULL)) {
 		ERRMSG("pfn(%llx) is excluded from %s.\n",
@@ -842,7 +843,7 @@ readpage_kdump_compressed(unsigned long long paddr, void *bufptr)
 	 * Read page data
 	 */
 	rdbuf = pd.flags & (DUMP_DH_COMPRESSED_ZLIB | DUMP_DH_COMPRESSED_LZO |
-		DUMP_DH_COMPRESSED_SNAPPY) ? buf : bufptr;
+		DUMP_DH_COMPRESSED_SNAPPY | DUMP_DH_COMPRESSED_ZSTD) ? buf : bufptr;
 	if (read(info->fd_memory, rdbuf, pd.size) != pd.size) {
 		ERRMSG("Can't read %s. %s\n",
 				info->name_memory, strerror(errno));
@@ -884,6 +885,30 @@ readpage_kdump_compressed(unsigned long long paddr, void *bufptr)
 			return FALSE;
 		}
 #endif
+#ifdef USEZSTD
+	} else if ((pd.flags & DUMP_DH_COMPRESSED_ZSTD)) {
+
+		rsize = ZSTD_getFrameContentSize(buf, pd.size);
+        if (rsize == ZSTD_CONTENTSIZE_ERROR) {
+            ERRMSG("Not compressed by zstd!");
+            return FALSE;
+        }
+        if (rsize == ZSTD_CONTENTSIZE_UNKNOWN) {
+            ERRMSG("Original size unknown!");
+            return FALSE;
+        }
+
+        retlen = ZSTD_decompress(buf, rsize, bufptr, pd.size);
+        if (ZSTD_isError(retlen)) {
+            ERRMSG("Uncompress failed: %s\n", ZSTD_getErrorName(retlen));
+            return FALSE;
+        }
+
+        if (rsize != retlen) {
+            ERRMSG("Impossible because zstd will check this condition!");
+            return FALSE;
+        }
+#endif
 	}
 
 	return TRUE;
@@ -898,6 +923,7 @@ readpage_kdump_compressed_parallel(int fd_memory, unsigned long long paddr,
 	char buf[info->page_size], *rdbuf;
 	int ret;
 	unsigned long retlen;
+    unsigned long long rsize;
 
 	if (!is_dumpable(bitmap_memory_parallel, paddr_to_pfn(paddr), NULL)) {
 		ERRMSG("pfn(%llx) is excluded from %s.\n",
@@ -921,7 +947,7 @@ readpage_kdump_compressed_parallel(int fd_memory, unsigned long long paddr,
 	 * Read page data
 	 */
 	rdbuf = pd.flags & (DUMP_DH_COMPRESSED_ZLIB | DUMP_DH_COMPRESSED_LZO |
-		DUMP_DH_COMPRESSED_SNAPPY) ? buf : bufptr;
+		DUMP_DH_COMPRESSED_SNAPPY | DUMP_DH_COMPRESSED_ZSTD) ? buf : bufptr;
 	if (read(fd_memory, rdbuf, pd.size) != pd.size) {
 		ERRMSG("Can't read %s. %s\n",
 				info->name_memory, strerror(errno));
@@ -962,6 +988,30 @@ readpage_kdump_compressed_parallel(int fd_memory, unsigned long long paddr,
 			ERRMSG("Uncompress failed: %d\n", ret);
 			return FALSE;
 		}
+#endif
+#ifdef USEZSTD
+	} else if ((pd.flags & DUMP_DH_COMPRESSED_ZSTD)) {
+
+		rsize = ZSTD_getFrameContentSize(buf, pd.size);
+        if (rsize == ZSTD_CONTENTSIZE_ERROR) {
+            ERRMSG("Not compressed by zstd!");
+            return FALSE;
+        }
+        if (rsize == ZSTD_CONTENTSIZE_UNKNOWN) {
+            ERRMSG("Original size unknown!");
+            return FALSE;
+        }
+
+        retlen = ZSTD_decompress(buf, rsize, bufptr, pd.size);
+        if (ZSTD_isError(retlen)) {
+			ERRMSG("Uncompress failed: %ld\n", retlen);
+			return FALSE;
+		}
+
+        if (rsize != retlen) {
+            ERRMSG("Impossible because zstd will check this condition!");
+            return FALSE;
+        }
 #endif
 	}
 

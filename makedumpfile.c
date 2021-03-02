@@ -296,10 +296,10 @@ is_cache_page(unsigned long flags)
 static inline unsigned long
 calculate_len_buf_out(long page_size)
 {
-	unsigned long len_buf_out_zlib, len_buf_out_lzo, len_buf_out_snappy;
+	unsigned long len_buf_out_zlib, len_buf_out_lzo, len_buf_out_snappy, len_buf_out_zstd;
 	unsigned long len_buf_out;
 
-	len_buf_out_zlib = len_buf_out_lzo = len_buf_out_snappy = 0;
+	len_buf_out_zlib = len_buf_out_lzo = len_buf_out_snappy = len_buf_out_zstd = 0;
 
 #ifdef USELZO
 	len_buf_out_lzo = page_size + page_size / 16 + 64 + 3;
@@ -309,11 +309,15 @@ calculate_len_buf_out(long page_size)
 	len_buf_out_snappy = snappy_max_compressed_length(page_size);
 #endif
 
+#ifdef USEZSTD
+	len_buf_out_zstd = ZSTD_compressBound(page_size);
+#endif
+
 	len_buf_out_zlib = compressBound(page_size);
 
-	len_buf_out = MAX(len_buf_out_zlib,
-			  MAX(len_buf_out_lzo,
-			      len_buf_out_snappy));
+	len_buf_out = MAX(MAX(len_buf_out_zlib,
+			              MAX(len_buf_out_lzo, len_buf_out_snappy)), 
+                      len_buf_out_zstd);
 
 	return len_buf_out;
 }
@@ -3887,6 +3891,14 @@ initial_for_parallel()
 			return FALSE;
 		}
 #endif
+
+#ifdef USEZSTD
+        if ((CCTX_PARALLEL(i) = ZSTD_createCCtx()) == NULL) {
+            ERRMSG("Can't create a ZSTD context %s\n",
+                    strerror(errno));
+            return FALSE;
+        }
+#endif
 	}
 
 	info->num_buffers = PAGE_DATA_NUM * info->num_threads;
@@ -3993,6 +4005,10 @@ free_for_parallel()
 #ifdef USELZO
 			if (WRKMEM_PARALLEL(i) != NULL)
 				free(WRKMEM_PARALLEL(i));
+#endif
+#ifdef USELZO
+			if (CCTX_PARALLEL(i) != NULL)
+				ZSTD_freeCCtx(CCTX_PARALLEL(i));
 #endif
 
 		}
@@ -7251,6 +7267,10 @@ write_kdump_header(void)
 	else if (info->flag_compress & DUMP_DH_COMPRESSED_SNAPPY)
 		dh->status |= DUMP_DH_COMPRESSED_SNAPPY;
 #endif
+#ifdef USEZSTD
+	else if (info->flag_compress & DUMP_DH_COMPRESSED_ZSTD)
+		dh->status |= DUMP_DH_COMPRESSED_ZSTD;
+#endif
 
 	size = sizeof(struct disk_dump_header);
 	if (!write_buffer(info->fd_dumpfile, 0, dh, size, info->name_dumpfile))
@@ -8109,6 +8129,9 @@ kdump_thread_function_cyclic(void *arg) {
 #ifdef USELZO
 	lzo_bytep wrkmem = WRKMEM_PARALLEL(kdump_thread_args->thread_num);
 #endif
+#ifdef USEZSTD
+    ZSTD_CCtx *cctx = CCTX_PARALLEL(kdump_thread_args->thread_num);
+#endif
 
 	buf = BUF_PARALLEL(kdump_thread_args->thread_num);
 	buf_out = BUF_OUT_PARALLEL(kdump_thread_args->thread_num);
@@ -8241,6 +8264,20 @@ kdump_thread_function_cyclic(void *arg) {
 						DUMP_DH_COMPRESSED_SNAPPY;
 				page_data_buf[index].size  = size_out;
 				memcpy(page_data_buf[index].buf, buf_out, size_out);
+#endif
+#ifdef USEZSTD
+			} else if ((info->flag_compress
+				    & DUMP_DH_COMPRESSED_ZSTD)
+				   && ((size_out = kdump_thread_args->len_buf_out),
+				       (size_out = ZSTD_compressCCtx(cctx, (char *)buf_out, size_out,
+                                           (char *)buf, info->page_size, 
+                                           ZSTD_fast)),
+                       !ZSTD_isError(size_out))
+                   && size_out < info->page_size) { // compressed file may become larger
+                   page_data_buf[index].flags =
+                           DUMP_DH_COMPRESSED_ZSTD;
+                   page_data_buf[index].size  = size_out;
+                   memcpy(page_data_buf[index].buf, buf_out, size_out);
 #endif
 			} else {
 				page_data_buf[index].flags = 0;
@@ -8516,6 +8553,9 @@ write_kdump_pages_cyclic(struct cache_data *cd_header, struct cache_data *cd_pag
 #ifdef USELZO
 	lzo_bytep wrkmem = NULL;
 #endif
+#ifdef USEZSTD
+	ZSTD_CCtx *cctx = NULL;
+#endif
 
 	if (info->flag_elf_dumpfile)
 		return FALSE;
@@ -8534,6 +8574,15 @@ write_kdump_pages_cyclic(struct cache_data *cd_header, struct cache_data *cd_pag
 		       strerror(errno));
 		goto out;
 	}
+#endif
+
+#ifdef USEZSTD
+	if (info->flag_compress & DUMP_DH_COMPRESSED_ZSTD) {
+        if ((cctx = ZSTD_createCCtx()) == NULL) {
+            ERRMSG("Can't create a ZSTD context \n");
+            goto out;
+        }
+    }
 #endif
 
 	len_buf_out = calculate_len_buf_out(info->page_size);
@@ -8618,6 +8667,17 @@ write_kdump_pages_cyclic(struct cache_data *cd_header, struct cache_data *cd_pag
 			pd.flags = DUMP_DH_COMPRESSED_SNAPPY;
 			pd.size  = size_out;
 #endif
+#ifdef USEZSTD
+			} else if ((info->flag_compress & DUMP_DH_COMPRESSED_ZSTD)
+				   && ((size_out = len_buf_out),
+				       (size_out = ZSTD_compressCCtx(cctx, (char *)buf_out, size_out, 
+                                           (char *)buf, info->page_size, 
+                                           ZSTD_fast)),
+                       !ZSTD_isError(size_out))
+                   && size_out < info->page_size) {
+                    pd.flags = DUMP_DH_COMPRESSED_ZSTD;
+                    pd.size  = size_out;
+#endif
 		} else {
 			pd.flags = 0;
 			pd.size  = info->page_size;
@@ -8640,6 +8700,10 @@ out:
 #ifdef USELZO
 	if (wrkmem != NULL)
 		free(wrkmem);
+#endif
+#ifdef ZSTD
+	if (cctx != NULL)
+		ZSTD_freeCCtx(cctx);
 #endif
 	if (stream != NULL)
 		finalize_zlib(stream);

@@ -38,6 +38,9 @@
 #ifdef USESNAPPY
 #include <snappy-c.h>
 #endif
+#ifdef USEZSTD
+#include <zstd.h>
+#endif
 #include "common.h"
 #include "dwarf_info.h"
 #include "diskdump_mod.h"
@@ -480,6 +483,9 @@ do { \
 #define ZLIB_STREAM_PARALLEL(i)		info->parallel_info[i].zlib_stream
 #ifdef USELZO
 #define WRKMEM_PARALLEL(i)		info->parallel_info[i].wrkmem
+#endif
+#ifdef USEZSTD
+#define CCTX_PARALLEL(i)		info->parallel_info[i].cctx
 #endif
 /*
  * kernel version
@@ -1324,6 +1330,9 @@ struct parallel_info {
 	z_stream		zlib_stream;
 #ifdef USELZO
 	lzo_bytep		wrkmem;
+#endif
+#ifdef USEZSTD
+	ZSTD_CCtx		*cctx;
 #endif
 };
 

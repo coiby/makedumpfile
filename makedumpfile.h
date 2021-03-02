@@ -38,6 +38,9 @@
 #ifdef USESNAPPY
 #include <snappy-c.h>
 #endif
+#ifdef USEZSTD
+#include <zstd.h>
+#endif
 #include "common.h"
 #include "dwarf_info.h"
 #include "diskdump_mod.h"

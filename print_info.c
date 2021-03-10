@@ -58,19 +58,25 @@ print_usage(void)
 #else
 	MSG("  disabled ('-p' option will be ignored.)\n");
 #endif
+	MSG("zstd support:\n");
+#ifdef USEZSTD
+	MSG("  enabled\n");
+#else
+	MSG("  disabled ('-z' option will be ignored.)\n");
+#endif
 	MSG("\n");
 	MSG("Usage:\n");
 	MSG("  Creating DUMPFILE:\n");
-	MSG("  # makedumpfile    [-c|-l|-p|-E] [-d DL] [-e] [-x VMLINUX|-i VMCOREINFO] VMCORE\n");
+	MSG("  # makedumpfile    [-c|-l|-p|-z|-E] [-d DL] [-e] [-x VMLINUX|-i VMCOREINFO] VMCORE\n");
 	MSG("    DUMPFILE\n");
 	MSG("\n");
 	MSG("  Creating DUMPFILE with filtered kernel data specified through filter config\n");
 	MSG("  file or eppic macro:\n");
-	MSG("  # makedumpfile    [-c|-l|-p|-E] [-d DL] -x VMLINUX [--config FILTERCONFIGFILE]\n");
+	MSG("  # makedumpfile    [-c|-l|-p|-z|-E] [-d DL] -x VMLINUX [--config FILTERCONFIGFILE]\n");
 	MSG("    [--eppic EPPICMACRO] VMCORE DUMPFILE\n");
 	MSG("\n");
 	MSG("  Outputting the dump data in the flattened format to the standard output:\n");
-	MSG("  # makedumpfile -F [-c|-l|-p|-E] [-d DL] [-x VMLINUX|-i VMCOREINFO] VMCORE\n");
+	MSG("  # makedumpfile -F [-c|-l|-p|-z|-E] [-d DL] [-x VMLINUX|-i VMCOREINFO] VMCORE\n");
 	MSG("\n");
 	MSG("  Rearranging the dump data in the flattened format to a readable DUMPFILE:\n");
 	MSG("  # makedumpfile -R DUMPFILE\n");
@@ -94,27 +100,27 @@ print_usage(void)
 	MSG("\n");
 	MSG("\n");
 	MSG("  Creating DUMPFILE of Xen:\n");
-	MSG("  # makedumpfile [-c|-l|-p|-E] [--xen-syms XEN-SYMS|--xen-vmcoreinfo VMCOREINFO]\n");
+	MSG("  # makedumpfile [-c|-l|-p|-z|-E] [--xen-syms XEN-SYMS|--xen-vmcoreinfo VMCOREINFO]\n");
 	MSG("    VMCORE DUMPFILE\n");
 	MSG("\n");
 	MSG("  Filtering domain-0 of Xen:\n");
-	MSG("  # makedumpfile [-c|-l|-p|-E] -d DL -x vmlinux VMCORE DUMPFILE\n");
+	MSG("  # makedumpfile [-c|-l|-p|-z|-E] -d DL -x vmlinux VMCORE DUMPFILE\n");
 	MSG("\n");
 	MSG("  Generating VMCOREINFO of Xen:\n");
 	MSG("  # makedumpfile -g VMCOREINFO --xen-syms XEN-SYMS\n");
 	MSG("\n");
 	MSG("\n");
 	MSG("  Creating DUMPFILE from multiple VMCOREs generated on sadump diskset configuration:\n");
-	MSG("  # makedumpfile [-c|-l|-p] [-d DL] -x VMLINUX --diskset=VMCORE1 --diskset=VMCORE2\n");
+	MSG("  # makedumpfile [-c|-l|-p|-z] [-d DL] -x VMLINUX --diskset=VMCORE1 --diskset=VMCORE2\n");
 	MSG("    [--diskset=VMCORE3 ..] DUMPFILE\n");
 	MSG("\n");
 	MSG("\n");
 	MSG("Available options:\n");
-	MSG("  [-c|-l|-p]:\n");
+	MSG("  [-c|-l|-p|-z]:\n");
 	MSG("      Compress dump data by each page using zlib for -c option, lzo for -l option\n");
-	MSG("      or snappy for -p option. A user cannot specify either of these options with\n");
-	MSG("      -E option, because the ELF format does not support compressed data.\n");
-	MSG("      THIS IS ONLY FOR THE CRASH UTILITY.\n");
+	MSG("      , snappy for -p option or zstd for -z option. A user cannot specify either of\n");
+	MSG("      these options with -E option, because the ELF format does not support\n");
+	MSG("     compressed data.  THIS IS ONLY FOR THE CRASH UTILITY.\n");
 	MSG("\n");
 	MSG("  [-e]:\n");
 	MSG("      Exclude the page structures (vmemmap) which represent excluded pages.\n");
@@ -146,7 +152,7 @@ print_usage(void)
 	MSG("\n");
 	MSG("  [-E]:\n");
 	MSG("      Create DUMPFILE in the ELF format.\n");
-	MSG("      This option cannot be specified with the -c, -l or -p options,\n");
+	MSG("      This option cannot be specified with the -c, -l, -p or -z options,\n");
 	MSG("      because the ELF format does not support compressed data.\n");
 	MSG("\n");
 	MSG("  [-x VMLINUX]:\n");

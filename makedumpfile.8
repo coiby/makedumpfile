@@ -132,10 +132,11 @@ configuration, you need to use --diskset option.
 .SH OPTIONS
 
 .TP
-\fB\-c,\-l,\-p\fR
+\fB\-c,\-l,\-p,\-z\fR
 Compress dump data by each page using zlib for -c option, lzo for -l
-option or snappy for -p option.
-(-l option needs USELZO=on and -p option needs USESNAPPY=on when building)
+option, snappy for -p option or zstd for -z option.
+(-l option needs USELZO=on, -p option needs USESNAPPY=on and -z option
+ needs USEZSTD=on when building)
 .br
 A user cannot specify this option with \-E option, because the ELF format does
 not support compressed data.
@@ -226,7 +227,7 @@ Here is the all combinations of the bits.
 \fB\-E\fR
 Create \fIDUMPFILE\fR in the ELF format.
 .br
-This option cannot be specified with the -c, -l or -p options, because
+This option cannot be specified with the -c, -l, -p or -z options, because
 the ELF format does not support compressed data.
 .br
 .B Example:
@@ -626,7 +627,7 @@ Print debugging message.
 
 .TP
 \fB\-h (\-\-help)\fR
-Show help message and LZO/snappy support status (enabled/disabled).
+Show help message and LZO/snappy/zstd support status (enabled/disabled).
 
 .TP
 \fB\-v\fR
